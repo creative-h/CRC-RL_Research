@@ -1,0 +1,834 @@
+CRC-RL: A Novel Visual Feature Representation
+Architecture for Unsupervised Reinforcement Learning
+Darshita Jain1, Anima Majumder1, Samrat Dutta1, Swagat Kumar2
+1TATA Consultancy Services, Bangalore, India.
+2Edge Hill University, UK.
+March 2, 2023
+1(darshita.jain, anima.majumder, d.samrat)@tcs.com ,2kumars@edgehill.ac.uk
+Abstract
+This paper addresses the problem of visual feature repre-
+sentation learning with an aim to improve the performance
+of end-to-end reinforcement learning (RL) models. Specif-
+ically, a novel architecture is proposed that uses a hetero-
+geneous loss function, called CRC loss, to learn improved
+visual features which can then be used for policy learning
+in RL. The CRC-loss function is a combination of three in-
+dividual loss functions, namely, contrastive, reconstruction
+and consistency loss. The feature representation is learned
+in parallel to the policy learning while sharing the weight
+updates through a Siamese Twin encoder model. This en-
+coder model is augmented with a decoder network and a
+feature projection network to facilitate computation of the
+above loss components. Through empirical analysis involv-
+ing latent feature visualization, an attempt is made to pro-
+vide an insight into the role played by this loss function in
+learning new action-dependent features and how they are
+linked to the complexity of the problems being solved. The
+proposed architecture, called CRC-RL, is shown to outper-
+form the existing state-of-the-art methods on the challeng-
+ing Deep mind control suite environments by a signiﬁcant
+margin thereby creating a new benchmark in thisﬁeld.
+In the recent past, deep reinforcement learning (DRL)
+algorithms have been successfully used to learn action poli-
+cies directly from visual observations, therebyﬁnding ap-
+plication in several interesting areas such as gaming [1, 2],
+robotics [3, 4, 5, 6] and autonomous vehicles [7, 8] etc. This
+success is mostly driven by the agent’s ability to jointly
+learn feature representation and policy decisions by using
+long-term credit-assignment capabilities of reinforcement
+learning algorithms in an end-to-end fashion. In spite of this
+success, RL algorithms are known to be sample-inefﬁcientand suffer from poor generalization for high-dimensional
+observations such as images [9, 10]. There are several ap-
+proaches to address these concerns, including methods such
+as, transfer learning [11, 12], meta-learning [13] [14] and
+active learning [15].Feature representation learning[16]
+is an alternative, and sometimes complementary, to these
+approaches which aims at learning useful features that can
+simplify the intended task, e.g., classiﬁcation or predic-
+tion. This paper primarily focuses on this later approach
+as it is now widely accepted that the problem of sample-
+inefﬁciency in RL can be solved to a great extent by learn-
+ing suitable feature representation which is shown to expe-
+dite the policy learning process [17]. The feature represen-
+tations are learned using self-supervised methods which are
+increasingly becoming popular as they obviate the need for
+manually generated labeled datasets thereby simplifying the
+practical deployment of deep learning models [18]. Some
+of these approaches include auto-encoders [19], GANs [20]
+[21], contrastive learning [22] and data augmentation tech-
+niques [9] [23]. The features thus obtained have been shown
+to greatly improve the sample efﬁciency and generalizabil-
+ity of RL methods as demonstrated in [24] [10] [23].
+Rather than decoupling the representation learning from
+policy learning as done in [25] [23] [17], we continue work-
+ing with end-to-end models because of their simplicity and
+aim at improving their performance by performing auxil-
+iary tasks as demonstrated in [10] [26]. Since the feature
+representations are learned along side the policy decisions
+in an end-to-end fashion, the features learned are actually
+action-dependent. This is because, the backward gradient
+ﬂow from the policy-learning algorithm is allowed to up-
+date the encoder weights. This makes the learned feature
+vectors strongly correlated to the actions being taken by the
+agent [27]. Given this hindsight, we are motivated by two
+factors. First, it is our belief that the quality of the fea-
+arXiv:2301.13473v2  [cs.CV]  1 Mar 2023tures learnt could be improved by using a better loss func-
+tion leading to improved RL performance. Secondly, we
+are keen to develop a better understanding of the relation-
+ship between the feature and action spaces. Towards fulﬁll-
+ing these objectives, we propose a new heterogeneous loss
+function calledCRC lossfor feature representation learn-
+ing by combining three different loss functions, namely,
+contrastive loss[10],reconstruction lossandconsistency
+loss. The reconstruction loss obtained with an auto-encoder
+model helps in learning compact features that is sufﬁcient
+to reconstruct the original observations. On the other hand,
+the consistency loss [23] helps in learning features that are
+invariant to image augmentations. In other words, by mini-
+mizing the consistency loss, the encoder is encouraged to
+learntask-relevantfeatures while ignoring irrelevant as-
+pects (such as, background color) thereby avoiding observa-
+tional over-ﬁtting [28]. Similarly, the contrastive loss helps
+in learningclass-invariantfeatures from augmented images
+by contrasting them against a batch of negative samples.
+In that sense, these three loss functions contribute comple-
+mentary information and hence, should improve the feature
+representation learning when combined together. In order
+to implement feature training with this loss function, a new
+architecture inspired by CURL [10], is proposed that uses a
+Siamese Twin encoder model, a decoder network and a fea-
+ture predictor to generate these losses. Through empirical
+analysis including feature visualizations, it is shown that the
+feature representations learnt by the CRC loss function is
+different from those learnt with the baseline CURL model,
+indicating the role played by the CRC-loss in learning new
+action-dependent features. In addition, visualization of cor-
+relation matrices between latent features generated by this
+model show increasingly complex patterns for complex en-
+vironments with higher-dimensional action spaces, thereby
+providing a clue about how features are inherently linked
+with action in an end-to-end RL model. Through rigorous
+experiments on the challenging Deep Mind Control suite
+environments [29], it is shown that the proposed CRC-RL
+model outperforms the existing state-of-the-art methods by
+a signiﬁcant margin, thereby establishing the efﬁcacy of the
+approach. The design choices for the proposed model are
+justiﬁed through extensive ablation studies.
+In short, the major contributions made in this paper are
+as follows:
+1. A new self-supervised feature representation architec-
+ture along with a novel loss function is proposed to im-
+prove the performance of RL models in learning poli-
+cies directly from image observations.
+2. Through empirical analysis involving latent feature vi-
+sualization, an attempt has been made to provide in-
+sights into the relationship between the action and fea-
+ture space thereby providing better standing of the roleplayed of the new loss function in learningaction-
+dependentfeatures.
+3. The resulting architecture is shown to outperform
+existing state-of-the-art methods on the challenging
+DMC environments by a signiﬁcant margin.
+The rest of this paper is organized as follows. Related works
+are reviewed in the next section. The proposed architecture
+is described in Section 2. The experimental results are dis-
+cussed and analyzed in Section 3. The paper ends with the
+concluding section 4.
+1 Related Works
+This section provides an overview of related literature in
+the following subsections.
+1.1 Deep RL architectures for policy learning
+Reinforcement learning algorithms learn the optimal
+policy for a given task by maximizing a measure ofcu-
+mulative discounted future rewardfor the task while bal-
+ancing betweenexploration(of new possibilities) andex-
+ploitation(of post experiences) [30]. This cumulative dis-
+counted reward function, represented as Q orvaluefunc-
+tion, is not known a priori and, is used to evaluate a given
+action taken by the agent. Depending on how this function
+is estimated and desirable actions are derived from it, the
+RL-based methods can be broadly classiﬁed into two cat-
+egories:value-basedmethods andpolicy-based methods.
+The value-based methods aim at estimating the Q-function
+and then derive action from this by using a greedy policy.
+On the other hand, policy- based methods directly estimate
+the policy function by maximizing a given objective func-
+tion. The traditional Q-learning algorithm estimates the Q
+function iteratively by using an approximate dynamic pro-
+gramming formulation based on Bellman’s equation start-
+ing from an initial estimate [31]. The original Q-learning
+algorithm could be applied to problems with discrete state
+(observation) and action spaces and hence, suffered from
+thecurse-of-dimensionalityproblem with higher dimen-
+sions and range of values. This limitation is overcome by
+using a deep network to estimate Q function that can take
+arbitrary observation inputs, thereby, greatly enhancing the
+capabilities of RL algorithms. The resulting approach is
+known as Deep Q Networks (DQN) [32] [33] which has
+been applied successfully to a wide range of problems while
+achieving superhuman level performances in a few cases,
+such as ATARI video games [34], Go [35] etc. The success
+of DQN has spawned a new researchﬁeld known as deep
+reinforcement learning (DRL) attracting a large following
+of researchers. Readers are referred to [36] for a survey of
+thisﬁeld. The DQN models were subsequently extended
+2Figure 1: CRC-RL Architecture: It consists of a Siamese Twin encoder along with a decoder and a feature predictor network. The query encoder together
+with the decoder forms an auto-encoder. The query encoder is used for learning policy using SAC algorithm. Observations are data-augmented to form
+query and key observations, which are then encoded into latent features by the respective encoders. Only the query encoder weights are updated during the
+training step. The weights of key encoder are exponential moving average of query encoder weights.
+to continuous action spaces by using policy gradient meth-
+ods that used a parameterized policy function to maximize
+DQN output using gradient ascent methods [37] [38]. This
+has opened the doors for solving various robotics problems
+that use continuous values such as joint angles, joint veloc-
+ities or motor torques as input. Since then, a number of
+methods have been proposed to improve the performance
+of RL algorithms and have been applied successfully to dif-
+ferent robotic problems - manipulation [39] [40], grasping
+[41] [42], navigation [43] etc. Some of the notable methods
+include actor-critic models - A2C and A3C [44], soft actor-
+critic (SAC) [45] and proximal policy optimization (PPO)
+[46]. In spite of the success of these methods, (deep) rein-
+forcement learning algorithms, in general, suffer from lim-
+itations such as poor sampling efﬁciency leading to longer
+training time, poor generalization and instability. The work
+presented in this paper aims to address some of these con-
+cerns by focusing on learning better task-relevant features.
+1.2 Feature Representation Learning in RL
+It is now widely accepted that learning policies from
+low-dimensional feature vectors based on physical states
+is much more sample efﬁcient compared to learning di-
+rectly from image pixels [10] [47]. Hence, it is impera-
+tive to learn suitable state representations from image ob-
+servations that will reduce the search space thereby improv-
+ing the sample efﬁciency and stability of RL algorithms.
+Theﬁeld of self-supervised representation learning has seen
+great progress in last few years. Auto-encoders [19] [48]
+learn the state representation by compressing the observa-tion into low-dimensional state that is sufﬁcient to recon-
+struct the observation. These have been used to improve the
+performance of RL algorithms as demonstrated in [17][49]
+[50] [24]. On the other hand, contrastive learning [22] [51]
+learns the class-relevant feature representations by maxi-
+mizing the agreement between the augmented versions of
+the same observation. It has been shown to greatly improve
+the sample efﬁciency of RL algorithms as in [10]. Simi-
+larly, recent studies have shown that the right kind of data
+augmentation techniques can improve the sample efﬁciency
+and generalization capabilities of RL algorithms learning
+task-relevantfeatures which remain unaffected by distrac-
+tions introduced by the augmentation [9] [52]. This can be
+further enforced by making the encoder minimize the con-
+sistency loss as suggested in [23]. In short, learning suitable
+feature representation plays a signiﬁcant role in improving
+the performance of RL algorithms by increasing sample ef-
+ﬁciency, improving generalization and stability. The work
+presented in this paper contributes to thisﬁeld by proposing
+a novel loss function that leads to superior learning perfor-
+mance for continuous control tasks as will be demonstrated
+later in this paper.
+2 Method
+This section provides details of the proposed CRC-RL
+model that uses a novel heterogeneous loss function to ex-
+tract useful information from visual images to be used for
+learning optimal policy using an end-to-end RL framework.
+The discussion is organized in the following subsections.
+3The architecture of the proposed model is described next.
+2.1 The Model Architecture
+The overall architecture of the proposed model is shown
+in Figure 1. The observation is available in the form of im-
+ages which are stacked together to act as input to the model.
+Stacking of frames is a heuristic approach to incorporate
+temporal information in the learning process [53]. The ob-
+servations obtained from the environment is stored in a re-
+play bufferDand a batch is sampled from this replay buffer
+during the training process. A Siamese Twin encoder model
+is employed for extracting features from the input images.
+These two encoders, termed asqueryandkeyencoders, are
+used for computing contrastive and consistency losses. The
+query encoder with a decoder is used for computing the
+reconstruction loss. A combination of these three losses,
+known as the CRC loss, is used for updating the parame-
+ters of the query encoder and decoder network. The input
+images are augmented before applying to the key encoder.
+The features obtained from the query encoder is used for
+policy estimation using soft-actor-critic algorithm [45]. The
+parameters of the query encoder and decoder networks are
+updated using error signals obtained from their own outputs
+as well as from the RL algorithm. Since the encoder net-
+works are getting inﬂuenced by the RL policy algorithm,
+the features learnt in the process areaction-dependent. This
+aspect will be analyzed in more detail in the experiment sec-
+tion presented later in this paper. The weights of the key
+encoder network is the exponential moving average of the
+query encoder weights. The proposed CRC loss function
+used for learning the feature embeddings is discussed in the
+next subsection.
+2.2 The loss function for feature extraction
+The query encoder is trained using the proposed CRC
+loss function which is a combination of the following three
+loss components as described below.
+2.2.1 Contrastive loss
+In contrastive learning, we have a queryqobservation and
+a set of key observation samplesK=k 0, k1, ...con-
+sisting of both positive samples(k +)and negative samples
+(K\k +). The positive samples are those that belong to the
+same class as that of the query observation and the rest are
+considered to be the negative samples. The goal is to learn
+embeddings such thatqis relatively more similar to the pos-
+itive keysk +than the negative keys in the latent space.
+The query and key observations, generated by applying data
+augmentation on sampled observations, are encoded using
+the query and key encoder respectively. The contrastive lossdepends on the output of both the encoders (Siamese Twin)
+represented by the symbolssands′respectively. The idea
+behind using the contrastive loss is that the different aug-
+mentations of the same image will have the same underlying
+information and hence their high-level representations will
+be mapped together in the latent space. The similarity be-
+tween the query and the key embeddings is computed using
+the bilinear inner-productqTW k >0whereWis a sym-
+metric matrix of parameters to be estimated [54] along with
+other parameters during the training process. The objective
+of training is to reduce this similarity measure so that the
+query embeddings become more distinct from the key em-
+beddings over time (qTW k≈0⇒q⊥k, W >0). This
+is achieved by minimizing the InfoNCE loss [55] given by:
+Lq= logexp(qTW k +)∑
+ki∈Kexp(qTW k i)(1)
+2.2.2 Reconstruction loss
+A well-trained encoder-decoder network is expected to re-
+construct the input image at the output of the decoder net-
+work. The reconstruction loss is computed based on the
+inaccuracy in the reconstructed image. A convolutional en-
+coderf θmaps an input observationx∈Rm×n×3to a
+lower-dimensional latent vectors∈Rl, and a deconvolu-
+tional decoderg φthen reconstructssback toˆ x∈Rm×n×3
+such that
+fθ:x→s(2)
+gφ:s→ˆ x(3)
+Both the encoders and decoder are trained simultaneously
+by maximizing the expected log-likelihood. The recon-
+struction loss checks how well the image has been recon-
+structed from the input. The reconstruction loss forces the
+update such that the latent representation preserves the core
+attributes of the input data. AnL 2penalty is imposed on
+the learned representationsand a weight-decay is imposed
+on the decoder parameters to incorporate the regularization
+affects as proposed in [56].
+Lr=Ex∼D[logp θ(xs) +λ s‖s‖2+λθ‖θ‖2](4)
+whereλ s, andλ θare hyper-parameters.
+2.2.3 Consistency loss
+The consistency loss depends on the output of both the
+query and key encoderf θandf′
+θ. Here, the query en-
+coder takes the original non-augmented observationxand
+the key encoder uses the augmented observation˜ xas in-
+put. The output of the Key encoders′is then used as an
+input to a feature predictor module, which is nothing but
+an MLP, to estimate the non-augmented embeddingˆ s. The
+4consistency loss is designed to minimize the error between
+the non-augmented embeddingsand the augmented em-
+beddings′, thereby enabling the encoder to learn essential
+task-relevantfeatures while ignoring irrelevant distractions
+(such as background clutter or texture). This eliminates the
+need of using negative samples for the computation of con-
+sistency loss. The consistency loss function can, therefore,
+be mathematically written as:
+Lc(ˆ s,s,θ) =E x∼D[‖ˆ s−s‖2](5)
+2.3 The CRC loss function
+It is our conjecture that each of the above three loss func-
+tions enables the encoder to extract non-redundant and com-
+plementary information from the higher dimensional input.
+Thus, a combination of these three should improve the over-
+all RL performance in learning optimum policy. The result-
+ing loss function, called CRC loss, has the following math-
+ematical form:
+LCRC=c 1Lq+c 2Lr+c 3Lc (6)
+wherec i>0,∑
+ici= 1, i= 1,2,3are hyper-parameters
+that control the relative importance of individual compo-
+nents. The RL model for policy learning takes the query
+encoder output as its input. The SAC algorithm used for
+learning policy is also allowed to affect the query encoder
+weightsf θduring the backward gradient update step. At
+regular intervals, the key encoderf′
+θweights are updated us-
+ing the exponential moving average (EMA) of the weights
+of the query encoderf θ. The feature learning and policy
+learning takes place in jointly in parallel. The latent repre-
+sentations learned by the query encoderf θreceives gradi-
+ents from both the CRC loss and the SAC algorithm losses.
+This makes the feature representationsaction-dependent, an
+aspect which will be analyzed in some more detail in the
+next section.
+3 Experimental Results and Discussions
+The proposed CRC-RL model architecture takes its
+inspiration from the original CURL implementation by
+Laskin et al. [10]. The original model is extended by in-
+corporating additional decoder and feature predictor to fa-
+cilitate computing the CRC loss function as described in
+the previous section. The model is implemented using Py-
+Torch [57] deep learning framework. The reinforcement
+learning framework for policy estimation makes use of the
+publicly released implementation of the SAC algorithm by
+Yarats et al. [58]. The query encoder and decoder archi-
+tecture is similar to the ones used in the above work. The
+query encoder weights are tied between the actor and criticTable 1: Hyper-parameters used for
+DMControl experiments. Most hyper-
+parameters values are unchanged across en-
+vironments with the exception for action re-
+peat, learning rate, and batch size.
+Hyper-parameter Value
+Pre transform image size (100, 100)
+Image size (84, 84)
+Action repeat 8
+Frame stack 3
+Transform Random crop
+Replay buffer capacity 100000
+Initial steps 1000
+Batch size 512
+Hidden layers 1024
+Evaluation episodes 10
+Optimizer Adam
+Learning rate(f θ,πψ, Qφ) 1e-3
+Learning rate(α) 1e-4
+Critic target update frequency 2
+Convolution layers 4
+Number ofﬁlters 32
+Latent dimension 50
+Discount(γ) 0.99
+Initial temperature 0.1
+so that they both use the same encoder to embed input im-
+age observations. The feature predictor module is a MLP
+network which consists of cascaded linear layers and ReLU
+activation function. The complete list of hyper-parameters
+is shown in Table 1. A number of experiments are carried
+out to establish the efﬁcacy of the proposed model. The de-
+sign choices are justiﬁed through several ablation studies as
+discussed below.
+3.1 Performance Comparison
+The performance of the proposed CRC-RL model is
+compared with the current state-of-the-art methods on the
+challenging Deep mind control suite (DMControl) environ-
+ments [29]. The outcome is shown in Table 2 and 3 after
+training for 100K and 500K environment steps respectively.
+It can be observed that the proposed CRC-RL model outper-
+forms the current state-of-the-art methods, such as CURL
+[10], SODA [23], PlaNet [59], Dreamer [60], SAC+AE
+[17], pixel-based SAC [45] on most of the DMControl en-
+vironments, thereby establishing the superiority of our ap-
+proach. The environments shown in Table 3 are difﬁcult
+compared to those shown in Table 2 and hence require
+longer training time. In this case, our proposed model out-
+performs the baseline CURL model in only 300K training
+steps.
+5Table 2: Mean episodic reward (with standard deviation) over 10 evaluation runs on DMControl environments after training for 100k environment steps.
+The best scores are shown in bold letters.
+100K Step Our Method CURL [10] SODA [23] PLANET [59] DREAMER [60] SAC+AE [17] PIXEL STATE % Increase
+Scores SAC [45] SAC [45] over CURL
+FINGER, SPIN 793±36 767±56 363±185 136±216 341±70 740±64 179±66 811±46 3.38
+CARTPOLE, SWINGUP 813±45 582±146 474±143 297±39 326±27 311±11 419±40 835±22 39.6
+REACHER, EASY 636±301 538±233 - 20±50 314±155 274±14 145±30 746±25 18.2
+CHEETAH, RUN 355±31 299±48 - 138±88 235±137 267±24 197±15 616±18 18.7
+WALKER, WALK 490±52 403±24 635±48 224±48 277±12 394±22 42±12 891±82 21.5
+BALL IN CUP, CATCH 832±81 769±43 539±111 0±0 246±174 391±82 312±63 746±91 8.19
+Table 3: Mean episodic score (with standard deviation) for 10 evalu-
+ation runs on DMControl environments obtained after training for 500k
+environment steps. The best scores are shown in bold letters.
+Environment Our Method*CURL % Increase over CURL
+QUADRUPED, WALK 88±51 39±22 125.6
+HOPPER, HOP 61±33 10±17 510
+WALKER, RUN 306±5 245±32 24.8
+FINGER TURN, HARD 423±78 207±32 104.3
+*shows values for 300K training steps
+3.2 t-SNE Visualizations
+To better understand the relationship between the learned
+latent representations and the action generated by the RL
+policy, we generate the two-dimensional t-SNE plots of fea-
+ture embeddings obtained from the query encoder for 3 dif-
+ferent environments as shown in Figure 2. These features
+are assigned with the corresponding action labels generated
+by partitioning the action space intoﬁve clusters by using
+the k-mean clustering algorithm. As one can observe, the
+proposed CRC-RL model leads to more pristine clusters
+with lesser outliers compared to the baseline CURL [10] al-
+gorithm for some amount of training. Compared to the Cart-
+pole environment, other two are comparatively more com-
+plex and require larger amount of time for training. This
+shows that the proposed model leads to better correlation
+between the feature embeddings and agent actions. This as-
+pect has not been empirically investigated extensively in the
+existing literature and thus, the current work makes a novel
+contribution byﬁlling this void.
+3.3 Feature Correlation Heat Maps
+Another study is performed to validate our hypothesis
+that the proposed CRC loss contribute new information re-
+sulting in learning new feature representations which are
+distinct from those obtained using individual losses. In this
+study, the correlation matrices between the latent features
+obtained with the baseline CURL algorithm (that uses con-
+trastive loss) and that with the proposed CRC-RL model
+(that uses CRC loss) is plotted as heat-maps as shown in
+Figure 4. These matrices are generated by collecting200
+sample embeddings from both models trained with 49000environment steps. Since, each image sample is encoded
+into a50×1feature vector, the features generated by the
+above two methods are grouped into two feature matrices
+(say,F 1andF 2) of size200×50. The correlation be-
+tween these two feature matrices results in a400x400ma-
+trix is visualized as a heat map in the aboveﬁgure where the
+darker regions shows higher correlation and lighter regions
+show lower correlation. It is observed that off-diagonal re-
+gions have lower correlation (lighter regions) indicating that
+the two feature embeddings (F1andF2) are very distinct
+from each other. The diagonal regions are highly correlated
+(darker regions) as they correspond to the features from the
+same method. Another interestingﬁnding of this study is
+that these heat maps show increasingly complex patterns for
+difﬁcult environments such as ’Walker-walk’ or ’Cheetah-
+Run’ compared to simpler environments such as ’Cartpole-
+Swingup’. These patterns evolve over time and stabilize as
+the training performance saturates. This is an interesting
+insight that may provide clue to better understand the rela-
+tionship between features and action policies learned in an
+end-to-end RL framework.
+3.4 Ablation Study
+Three separate ablation studies are carried out to justify
+the design choices made in this paper as described below.
+3.4.1 Usefulness of CRC loss function
+First study validates the usefulness of the proposed CRC
+loss function comprising of contrastive, reconstruction and
+consistency losses. The outcome is shown in Figure 3.
+We start with the baseline CURL model [10] that uses
+contrastive loss to learn the feature presentations. Then
+this model is trained with a combined loss function of
+contrastive and reconstruction loss andﬁnally, with the
+CRC loss function comprising of contrastive, reconstruc-
+tion and consistency losses. The inclusion of these losses
+require modifying the existing CURL model leading to the
+formation of the CRC-RL model proposed in this paper.
+Theﬁgure shows that CRC-RL performs better than the
+other two for the benchmark problems from the Deepmind
+control suite (DMC), namely, ‘Cheetah-Run’ or ‘Walker-
+6CURL
+CRC-RL
+(a) Cartpole-Swingup (b) Cheetah-Run (c) Walker-walk
+Figure 2: t-SNE visualization of latent feature embeddings obtained from query encoder at 49K training steps. Colors correspond to cluster labels in the
+action space. One can observe that CRC-RL leads to more pristine clusters with less outliers compared to CURL.
+(a) (b) (c)
+Figure 3: Effect of incorporating various loss components. CRC loss function performs better than other combinations for more difﬁcult
+environments such as ’Cheetah-Run’ and ’Walker-walk’.
+7(a) Cartpole-Swingup (b) Cheetah-Run (c) Walker-walk
+Figure 4: Feature correlation heat-maps for three environments showing the correlation between the latent features obtained with CURL and CRC-RL
+models. The models are trained for 49K environment steps and 200 latent features are used to generate this plot.
+walk’. These two are comparatively difﬁcult problems to
+solve compared to simpler problems such as the ‘Cartpole-
+Swingup’ problem which does not beneﬁt from the pro-
+posed CRC-RL model. This observation clearly establishes
+the usefulness of the proposed approach. This becomes
+more evident in the second ablation study discussed in the
+next section below.
+3.4.2 Relative weights of loss components in the CRC
+loss function
+In this study, the relative weights of three loss compo-
+nents, namely, contrastive, reconstruction and consistency
+loss, are varied and its effect on the validation performance
+is compared as shown in Figure 5. The weights are var-
+ied with the constraint of forming a convex sum. In other
+words,c i>0, i∈1,2,3and∑
+ici= 1. Theﬁgure shows
+that the individual loss functions do not always provide the
+best performance. The best performance is obtained by a
+combination of all the three losses. Having equal weights
+(c1=c 2=c 3= 0.33) for all the three losses have a reg-
+ularizing effect on model performance in the sense that the
+performance is traded for better generalizability. This is ev-
+ident from the fact that the validation performance curve
+with this combination of weights lie somewhere in the mid-
+dle of the all the curves. The generalization capability of the
+proposed model is demonstrated in the third ablation study
+discussed next.
+3.4.3 Generalization Capability of the CRC-RL model
+In order to test the generalization capabilities of the pro-
+posed CRC-RL model, another experiment is performed
+where the RL models are trained on images augmented with
+random cropeffect and then validated on images augmented
+withVideo-EasyandColor-Hardartifacts [23]. The out-
+come is shown in Figure 6. Comparing with the validationplots in Figure 5, it is observed that the overall performance
+has come down signiﬁcantly due to these complex augmen-
+tations which makes it difﬁcult for the model to generalize
+when trained only with images augmented with onlyran-
+dom cropartefact. However, even in this case, the RL model
+trained with CRC loss function provides the best or closer-
+to-the-best evaluation performance compared to the mod-
+els that use individual loss components for training. This
+demonstrates the superior generalization capability of the
+proposed CRC-RL model over the existing models that use
+one of the above loss functions for training. It also corrob-
+orates the earlierﬁnding mentioned in the previous subsec-
+tion that the equal weights for individual loss components
+in the CRC loss function have a regularizing effect on the
+model performance.
+4 Conclusions
+The paper addresses the problem of feature representa-
+tion learning in end-to-end reinforcement learning models
+with visual observations. Speciﬁcally, a new loss function,
+called CRC loss, is proposed to learn action-dependent fea-
+tures leading to superior performance in learning optimal
+action policies. This loss function is a combination of three
+different loss functions, namely, the image reconstruction
+loss, the contrastive loss and the consistency loss. Through
+empirical analysis including latent feature visualization, an
+attempt is made to generate new insights that can better ex-
+plain the relationship between the features being learnt and
+the actions being taken by the RL agent. The resulting ar-
+chitecture is shown to outperform the existing state-of-the-
+art methods in solving the challenging DMC problems by
+a signiﬁcant margin thereby forming a new benchmark in
+thisﬁeld. The future work will involve carrying out more
+in-depth analysis and evaluation of the individual loss com-
+ponents on the overall performance as well as on the quality
+8(a) (b) (c)
+Figure 5: Effect of varying weighting parameters for different loss functions on the Evaluation performance.c 1,c2andc 3are the weights
+to the contrastive loss, the reconstruction loss and the consistency loss respectively in the CRC loss function. The environments used
+are: (a) Cartpole-Swingup, (b) Cheetah-Run and (c) Walker-walk. Varying these parameters have a regularizing effect on the training
+performance. A smoothing factor of 0.5 is applied to the plot.
+(a) (b) (c) (d)
+Figure 6: Generalization capabilities of CRC-RL algorithm.c 1,c2andc 3are the weights to the contrastive loss, the reconstruction loss
+and the consistency loss respectively in the CRC loss function. The environments used are: (a) Cartpole-Swingup, (b) Cheetah-Run and (c)
+Ball-in-Cup-Catch and (d) Walker-walk. The RL models are trained on images withrandom-cropaugmentation and evaluated on images
+withVideo-EasyandColor-Hardaugmentations. Compared to the individual losses, CRC loss provide best or second-best evaluation
+performance for these new augmentations thereby establishing the superior generalization capabilities of the CRC-RL model.
+9of features being learned.
+References
+[1] Volodymyr Mnih, Koray Kavukcuoglu, David Silver, An-
+drei A Rusu, Joel Veness, Marc G Bellemare, Alex Graves,
+Martin Riedmiller, Andreas K Fidjeland, Georg Ostrovski,
+et al. Human-level control through deep reinforcement learn-
+ing.nature, 518(7540):529–533, 2015.
+[2] Shan Xue, Biao Luo, Derong Liu, and Ying Gao. Event-
+triggered integral reinforcement learning for nonzero-sum
+games with asymmetric input saturation.Neural Networks,
+152:212–223, 2022.
+[3] Sergey Levine, Chelsea Finn, Trevor Darrell, and Pieter
+Abbeel. End-to-end training of deep visuomotor policies.
+The Journal of Machine Learning Research, 17(1):1334–
+1373, 2016.
+[4] Ahmed Hussain Qureshi, Yutaka Nakamura, Yuichiro
+Yoshikawa, and Hiroshi Ishiguro. Intrinsically motivated re-
+inforcement learning for human–robot interaction in the real-
+world.Neural Networks, 107:23–33, 2018.
+[5] Jiexin Wang, Stefan Elfwing, and Eiji Uchibe. Modular
+deep reinforcement learning from reward and punishment for
+robot navigation.Neural Networks, 135:115–126, 2021.
+[6] Yutaka Nakamura, Takeshi Mori, Masa-aki Sato, and Shin
+Ishii. Reinforcement learning for a biped robot based on a
+cpg-actor-critic method.Neural networks, 20(6):723–735,
+2007.
+[7] Wei Yang, Xiaolong Wang, Ali Farhadi, Abhinav Gupta, and
+Roozbeh Mottaghi. Visual semantic navigation using scene
+priors.arXiv preprint arXiv:1810.06543, 2018.
+[8] Yuke Zhu, Roozbeh Mottaghi, Eric Kolve, Joseph J Lim, Ab-
+hinav Gupta, Li Fei-Fei, and Ali Farhadi. Target-driven vi-
+sual navigation in indoor scenes using deep reinforcement
+learning. In2017 IEEE international conference on robotics
+and automation (ICRA), pages 3357–3364. IEEE, 2017.
+[9] Misha Laskin, Kimin Lee, Adam Stooke, Lerrel Pinto, Pieter
+Abbeel, and Aravind Srinivas. Reinforcement learning with
+augmented data.Advances in neural information processing
+systems, 33:19884–19895, 2020.
+[10] Michael Laskin, Aravind Srinivas, and Pieter Abbeel. Curl:
+Contrastive unsupervised representations for reinforcement
+learning. InInternational Conference on Machine Learning,
+pages 5639–5650. PMLR, 2020.
+[11] Fuzhen Zhuang, Zhiyuan Qi, Keyu Duan, Dongbo Xi,
+Yongchun Zhu, Hengshu Zhu, Hui Xiong, and Qing He. A
+comprehensive survey on transfer learning.Proceedings of
+the IEEE, 109(1):43–76, 2020.
+[12] Tariqul Islam, Dm Mehedi Hasan Abid, Tanvir Rahman, Za-
+hura Zaman, Kausar Mia, and Ramim Hossain. Transfer
+learning in deep reinforcement learning. InProceedings of
+Seventh International Congress on Information and Commu-
+nication Technology: ICICT 2022, London, Volume 1, pages
+145–153. Springer, 2022.[13] Yesmina Jaafra, Jean Luc Laurent, Aline Deruyver, and Mo-
+hamed Saber Naceur. A review of meta-reinforcement learn-
+ing for deep neural networks architecture search.arXiv
+preprint arXiv:1812.07995, 2018.
+[14] Timothy Hospedales, Antreas Antoniou, Paul Micaelli, and
+Amos Storkey. Meta-learning in neural networks: A survey.
+IEEE transactions on pattern analysis and machine intelli-
+gence, 44(9):5149–5169, 2021.
+[15] Burr Settles. Active learning literature survey. 2009.
+[16] Yoshua Bengio, Aaron Courville, and Pascal Vincent. Rep-
+resentation learning: A review and new perspectives.IEEE
+transactions on pattern analysis and machine intelligence,
+35(8):1798–1828, 2013.
+[17] Denis Yarats, Amy Zhang, Ilya Kostrikov, Brandon Amos,
+Joelle Pineau, and Rob Fergus. Improving sample efﬁciency
+in model-free reinforcement learning from images. InPro-
+ceedings of the AAAI Conference on Articial Intelligence,
+volume 35, pages 10674–10681, 2021.
+[18] Linus Ericsson, Henry Gouk, Chen Change Loy, and Timo-
+thy M Hospedales. Self-supervised representation learning:
+Introduction, advances, and challenges.IEEE Signal Pro-
+cessing Magazine, 39(3):42–62, 2022.
+[19] Dor Bank, Noam Koenigstein, and Raja Giryes. Autoen-
+coders.arXiv preprint arXiv:2003.05991, 2020.
+[20] Daoyu Lin, Kun Fu, Yang Wang, Guangluan Xu, and Xian
+Sun. Marta gans: Unsupervised representation learning for
+remote sensing image classiﬁcation.IEEE Geoscience and
+Remote Sensing Letters, 14(11):2092–2096, 2017.
+[21] Yuxin Peng and Jinwei Qi. Cm-gans: Cross-modal genera-
+tive adversarial networks for common representation learn-
+ing.ACM Transactions on Multimedia Computing, Commu-
+nications, and Applications (TOMM), 15(1):1–24, 2019.
+[22] Ting Chen, Simon Kornblith, Mohammad Norouzi, and Ge-
+offrey Hinton. A simple framework for contrastive learning
+of visual representations. InInternational conference on ma-
+chine learning, pages 1597–1607. PMLR, 2020.
+[23] Nicklas Hansen and Xiaolong Wang. Generalization in re-
+inforcement learning by soft data augmentation. In2021
+IEEE International Conference on Robotics and Automation
+(ICRA), pages 13611–13617. IEEE, 2021.
+[24] Chelsea Finn, Xin Yu Tan, Yan Duan, Trevor Darrell, Sergey
+Levine, and Pieter Abbeel. Learning visual feature spaces for
+robotic manipulation with deep spatial autoencoders.arXiv
+preprint arXiv:1509.06113, 25:2, 2015.
+[25] Adam Stooke, Kimin Lee, Pieter Abbeel, and Michael
+Laskin. Decoupling representation learning from reinforce-
+ment learning. InInternational Conference on Machine
+Learning, pages 9870–9879. PMLR, 2021.
+[26] Max Jaderberg, Volodymyr Mnih, Wojciech Marian Czar-
+necki, Tom Schaul, Joel Z Leibo, David Silver, and Koray
+Kavukcuoglu. Reinforcement learning with unsupervised
+auxiliary tasks.arXiv preprint arXiv:1611.05397, 2016.
+10[27] Konstantia Xenou, Georgios Chalkiadakis, and Stergos
+Afantenos. Deep reinforcement learning in strategic board
+game environments. InEuropean Conference on Multi-Agent
+Systems, pages 233–248. Springer, 2018.
+[28] Behnam Neyshabur, Stephen Tu, Xingyou Song, Yiding
+Jiang, and Yilun Du. Observational overﬁtting in reinforce-
+ment learning. 2020.
+[29] Yuval Tassa, Yotam Doron, Alistair Muldal, Tom Erez,
+Yazhe Li, Diego de Las Casas, David Budden, Abbas Ab-
+dolmaleki, Josh Merel, Andrew Lefrancq, et al. Deepmind
+control suite.arXiv preprint arXiv:1801.00690, 2018.
+[30] Richard S Sutton and Andrew G Barto.Reinforcement learn-
+ing: An introduction. MIT press, 2018.
+[31] Andrew G Barto. Reinforcement learning and dynamic pro-
+gramming. InAnalysis, Design and Evaluation of Man–
+Machine Systems 1995, pages 407–412. Elsevier, 1995.
+[32] Hado Van Hasselt, Arthur Guez, and David Silver. Deep re-
+inforcement learning with double q-learning. InProceedings
+of the AAAI Conference on Articial Intelligence, volume 30,
+2016.
+[33] Mohit Sewak. Deep q network (dqn), double dqn, and du-
+eling dqn. InDeep Reinforcement Learning, pages 95–108.
+Springer, 2019.
+[34] Volodymyr Mnih, Koray Kavukcuoglu, David Silver, Alex
+Graves, Ioannis Antonoglou, Daan Wierstra, and Martin
+Riedmiller. Playing atari with deep reinforcement learning.
+arXiv preprint arXiv:1312.5602, 2013.
+[35] Sean D Holcomb, William K Porter, Shaun V Ault, Guifen
+Mao, and Jin Wang. Overview on deepmind and its alphago
+zero ai. InProceedings of the 2018 international conference
+on big data and education, pages 67–71, 2018.
+[36] Kai Arulkumaran, Marc Peter Deisenroth, Miles Brundage,
+and Anil Anthony Bharath. Deep reinforcement learning: A
+brief survey.IEEE Signal Processing Magazine, 34(6):26–
+38, 2017.
+[37] Timothy P Lillicrap, Jonathan J Hunt, Alexander Pritzel,
+Nicolas Heess, Tom Erez, Yuval Tassa, David Silver, and
+Daan Wierstra. Continuous control with deep reinforcement
+learning.arXiv preprint arXiv:1509.02971, 2015.
+[38] Yan Duan, Xi Chen, Rein Houthooft, John Schulman, and
+Pieter Abbeel. Benchmarking deep reinforcement learning
+for continuous control. InInternational conference on ma-
+chine learning, pages 1329–1338. PMLR, 2016.
+[39] Shixiang Gu, Ethan Holly, Timothy Lillicrap, and Sergey
+Levine. Deep reinforcement learning for robotic manipula-
+tion with asynchronous off-policy updates. In2017 IEEE in-
+ternational conference on robotics and automation (ICRA),
+pages 3389–3396. IEEE, 2017.
+[40] Hai Nguyen and Hung La. Review of deep reinforcement
+learning for robot manipulation. In2019 Third IEEE In-
+ternational Conference on Robotic Computing (IRC), pages
+590–595. IEEE, 2019.[41] Deirdre Quillen, Eric Jang, Oﬁr Nachum, Chelsea Finn, Ju-
+lian Ibarz, and Sergey Levine. Deep reinforcement learn-
+ing for vision-based robotic grasping: A simulated compar-
+ative evaluation of off-policy methods. In2018 IEEE In-
+ternational Conference on Robotics and Automation (ICRA),
+pages 6284–6291. IEEE, 2018.
+[42] Shirin Joshi, Sulabh Kumra, and Ferat Sahin. Robotic grasp-
+ing using deep reinforcement learning. In2020 IEEE 16th
+International Conference on Automation Science and Engi-
+neering (CASE), pages 1461–1466. IEEE, 2020.
+[43] Pengyu Yue, Jing Xin, Huan Zhao, Ding Liu, Mao Shan, and
+Jian Zhang. Experimental research on deep reinforcement
+learning in autonomous navigation of mobile robot. In2019
+14th IEEE Conference on Industrial Electronics and Appli-
+cations (ICIEA), pages 1612–1616. IEEE, 2019.
+[44] Volodymyr Mnih, Adria Puigdomenech Badia, Mehdi Mirza,
+Alex Graves, Timothy Lillicrap, Tim Harley, David Silver,
+and Koray Kavukcuoglu. Asynchronous methods for deep
+reinforcement learning. InInternational conference on ma-
+chine learning, pages 1928–1937. PMLR, 2016.
+[45] Tuomas Haarnoja, Aurick Zhou, Kristian Hartikainen,
+George Tucker, Sehoon Ha, Jie Tan, Vikash Kumar,
+Henry Zhu, Abhishek Gupta, Pieter Abbeel, et al. Soft
+actor-critic algorithms and applications.arXiv preprint
+arXiv:1812.05905, 2018.
+[46] John Schulman, Filip Wolski, Prafulla Dhariwal, Alec Rad-
+ford, and Oleg Klimov. Proximal policy optimization algo-
+rithms.arXiv preprint arXiv:1707.06347, 2017.
+[47] Nicol `o Botteghi, Mannes Poel, and Christoph Brune. Unsu-
+pervised representation learning in deep reinforcement learn-
+ing: A review.arXiv preprint arXiv:2208.14226, 2022.
+[48] Walter Hugo Lopez Pinaya, Sandra Vieira, Rafael Garcia-
+Dias, and Andrea Mechelli. Autoencoders. InMachine
+learning, pages 193–208. Elsevier, 2020.
+[49] Antonin Rafﬁn, Ashley Hill, Ren ´e Traor ´e, Timoth ´ee Lesort,
+Natalia D ´ıaz-Rodr ´ıguez, and David Filliat. S-rl toolbox: En-
+vironments, datasets and evaluation metrics for state repre-
+sentation learning.arXiv preprint arXiv:1809.09369, 2018.
+[50] Sascha Lange and Martin Riedmiller. Deep auto-encoder
+neural networks in reinforcement learning. InThe 2010 in-
+ternational joint conference on neural networks (IJCNN),
+pages 1–8. IEEE, 2010.
+[51] Alexander Kolesnikov, Xiaohua Zhai, and Lucas Beyer. Re-
+visiting self-supervised visual representation learning. In
+Proceedings of the IEEE/CVF conference on computer vi-
+sion and pattern recognition, pages 1920–1929, 2019.
+[52] Roberta Raileanu, Max Goldstein, Denis Yarats, Ilya
+Kostrikov, and Rob Fergus. Automatic data augmentation for
+generalization in deep reinforcement learning.arXiv preprint
+arXiv:2006.12862, 2020.
+[53] Wenling Shang, Xiaofei Wang, Aravind Srinivas, Aravind
+Rajeswaran, Yang Gao, Pieter Abbeel, and Misha Laskin.
+Reinforcement learning with latentﬂow.Advances in Neural
+Information Processing Systems, 34:22171–22183, 2021.
+11[54] Olivier Henaff. Data-efﬁcient image recognition with con-
+trastive predictive coding. InInternational conference on
+machine learning, pages 4182–4192. PMLR, 2020.
+[55] Aaron van den Oord, Yazhe Li, and Oriol Vinyals. Repre-
+sentation learning with contrastive predictive coding.arXiv
+preprint arXiv:1807.03748, 2018.
+[56] Partha Ghosh, Mehdi SM Sajjadi, Antonio Vergari, Michael
+Black, and Bernhard Sch ¨olkopf. From variational to de-
+terministic autoencoders.arXiv preprint arXiv:1903.12436,
+2019.
+[57] Adam Paszke, Sam Gross, Francisco Massa, Adam Lerer,
+James Bradbury, Gregory Chanan, Trevor Killeen, Zeming
+Lin, Natalia Gimelshein, Luca Antiga, et al. Pytorch: An im-
+perative style, high-performance deep learning library.Ad-
+vances in neural information processing systems, 32, 2019.
+[58] Denis Yarats, Ilya Kostrikov, and Rob Fergus. Image aug-
+mentation is all you need: Regularizing deep reinforcement
+learning from pixels. InInternational Conference on Learn-
+ing Representations, 2020.
+[59] Danijar Hafner, Timothy Lillicrap, Ian Fischer, Ruben Ville-
+gas, David Ha, Honglak Lee, and James Davidson. Learning
+latent dynamics for planning from pixels. InInternational
+conference on machine learning, pages 2555–2565. PMLR,
+2019.
+[60] Danijar Hafner, Timothy Lillicrap, Jimmy Ba, and Moham-
+mad Norouzi. Dream to control: Learning behaviors by la-
+tent imagination.arXiv preprint arXiv:1912.01603, 2019.
+12
