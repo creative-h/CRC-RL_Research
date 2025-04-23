@@ -30,10 +30,13 @@ def main():
     agent = SACAgent(latent_dim, action_dim, device)
     # Dummy environment, replace with real env
     env = DummyEnv()
-    obs = env.reset().unsqueeze(0).to(device)
+    obs = env.reset().unsqueeze(0)
+    obs = obs.to(device)  # Ensure obs is on the correct device
     for step in range(5):  # Replace 5 with num_steps
         obs_aug = augment(obs)
         obs_key = augment(obs)
+        obs_aug = obs_aug.to(device)
+        obs_key = obs_key.to(device)
         z_q = encoder_q(obs_aug)
         z_k = encoder_k(obs_key)
         recon = decoder(z_q)
