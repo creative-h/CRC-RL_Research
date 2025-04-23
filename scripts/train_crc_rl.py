@@ -1,3 +1,7 @@
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 # Training script for CRC-RL
 import torch
 from crc_rl.encoders import Encoder, update_ema
