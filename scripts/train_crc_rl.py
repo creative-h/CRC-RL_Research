@@ -15,9 +15,17 @@ from crc_rl.replay_buffer import ReplayBuffer
 def make_env():
     try:
         from dm_control import suite
+        from dm_control.suite.wrappers import PixelObservationsWrapper
     except ImportError:
         raise ImportError("Please install dm_control: !pip install dm_control")
-    env = suite.load(domain_name="cartpole", task_name="balance")
+    env = suite.load(
+        domain_name="cartpole",
+        task_name="balance",
+        task_kwargs={"random": 0},
+        visualize_reward=False,
+        environment_kwargs={"flat_observation": False}
+    )
+    env = PixelObservationsWrapper(env, pixels_only=True, render_kwargs={'height': 84, 'width': 84})
     return env
 
 def get_obs(env, ts):
