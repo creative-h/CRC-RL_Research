@@ -15,7 +15,6 @@ from crc_rl.replay_buffer import ReplayBuffer
 def make_env():
     try:
         from dm_control import suite
-        from dm_control.suite.wrappers import PixelObservationsWrapper
     except ImportError:
         raise ImportError("Please install dm_control: !pip install dm_control")
     env = suite.load(
@@ -25,13 +24,12 @@ def make_env():
         visualize_reward=False,
         environment_kwargs={"flat_observation": False}
     )
-    env = PixelObservationsWrapper(env, pixels_only=True, render_kwargs={'height': 84, 'width': 84})
     return env
 
 def get_obs(env, ts):
-    # Use only 'pixels' observation
-    obs = ts.observation['pixels']
-    obs = torch.tensor(obs, dtype=torch.float32).permute(2, 0, 1) / 255.0
+    # Render pixels directly from the physics engine
+    pixels = env.physics.render(height=84, width=84, camera_id=0)
+    obs = torch.tensor(pixels, dtype=torch.float32).permute(2, 0, 1) / 255.0
     return obs
 
 def main():
